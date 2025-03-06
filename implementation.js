@@ -1,30 +1,32 @@
 async function generate_image_with_fal_ai(params, userSettings) {
   const { type, prompt, image_url } = params;
-  const { fal_ai_api_key, image_size = "landscape_16_9", num_inference_steps = "25", num_images = "1", enable_safety_checker = "true" } = userSettings;
+  const { fal_ai_api_key, image_size = "square_1024", num_inference_steps = "35", num_images = "1", enable_safety_checker = "true" } = userSettings;
   
   let endpoint, requestBody;
   
   if (type === "text_to_image") {
-    endpoint = "https://queue.fal.run/fal-ai/flux-lora";
+    endpoint = "https://queue.fal.run/fal-ai/flux-pro/v1.1-ultra";
     requestBody = { 
       prompt, 
       image_size, 
       num_inference_steps: parseInt(num_inference_steps), 
       num_images: parseInt(num_images), 
       enable_safety_checker: enable_safety_checker === "true",
-      lora_scale: 0.8  // Added lora-specific parameter
+      guidance_scale: 7.5,  // Added parameter for flux-pro
+      negative_prompt: "blurry, bad quality, distorted proportions"  // Added negative prompt
     };
   } else if (type === "image_to_image") {
-    endpoint = "https://queue.fal.run/fal-ai/flux-lora/img2img";
+    endpoint = "https://queue.fal.run/fal-ai/flux-pro/v1.1-ultra/img2img";
     requestBody = { 
       image_url, 
-      prompt,  // Required for flux-lora img2img
+      prompt,
       image_size, 
       num_inference_steps: parseInt(num_inference_steps), 
       num_images: parseInt(num_images), 
       enable_safety_checker: enable_safety_checker === "true",
-      strength: 0.7,  // Added parameter for image-to-image
-      lora_scale: 0.8  // Added lora-specific parameter
+      strength: 0.65,  // Adjusted for flux-pro
+      guidance_scale: 7.5,  // Added parameter for flux-pro
+      negative_prompt: "blurry, bad quality, distorted proportions"  // Added negative prompt
     };
   } else {
     return "**Error:** Invalid 'type' parameter. Must be 'text_to_image' or 'image_to_image'.";
@@ -49,11 +51,11 @@ async function generate_image_with_fal_ai(params, userSettings) {
     if (!request_id) throw new Error("Did not receive a request_id from Fal.ai API.");
     
     let result = null, attempts = 0;
-    const maxAttempts = 30, pollInterval = 1000 + (parseInt(num_inference_steps) * 250);
+    const maxAttempts = 40, pollInterval = 1500 + (parseInt(num_inference_steps) * 300); // Adjusted for higher quality model
     
     while (!result && attempts < maxAttempts) {
       attempts++;
-      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-lora/requests/${request_id}/status`, { 
+      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-pro/v1.1-ultra/requests/${request_id}/status`, { 
         headers: { "Authorization": `Key ${fal_ai_api_key}` } 
       });
       
@@ -64,7 +66,7 @@ async function generate_image_with_fal_ai(params, userSettings) {
       
       const statusJson = await statusResponse.json();
       if (statusJson.status === "COMPLETED") {
-        const resultResponse = await fetch(`https://queue.fal.run/fal-ai/flux-lora/requests/${request_id}`, { 
+        const resultResponse = await fetch(`https://queue.fal.run/fal-ai/flux-pro/v1.1-ultra/requests/${request_id}`, { 
           headers: { "Authorization": `Key ${fal_ai_api_key}` } 
         });
         
